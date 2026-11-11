@@ -1,0 +1,887 @@
+<!--
+  Stack 3D
+  Copyright (c) 2026 kran1or
+  All rights reserved.
+  Personal, non-commercial use only.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#ffffff">
+  <title>Stack 3D</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      height: 100%; width: 100%; overflow: hidden;
+      position: fixed; inset: 0; background: #111;
+      font-family: Impact, 'Arial Black', system-ui, sans-serif;
+      touch-action: manipulation; user-select: none; -webkit-user-select: none;
+      letter-spacing: 1px; -webkit-text-size-adjust: 100%;
+    }
+    canvas { display: block; position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
+    #game { pointer-events: none; }
+    #leafCanvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 900; }
+
+    .coinDot {
+      display: inline-block;
+      width: 1em; height: 1em;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #fff6b0, #ffd34d 45%, #b8860b 100%);
+      box-shadow: inset 0 0 2px rgba(0,0,0,0.4);
+      vertical-align: -0.15em;
+      margin-right: 4px;
+      flex-shrink: 0;
+    }
+
+    #start {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: linear-gradient(180deg, #ffffff 0%, #eaf4ff 100%);
+      z-index: 100; transition: opacity 0.6s ease;
+      padding: 20px;
+    }
+    #start.hidden { opacity: 0; pointer-events: none; }
+    #winterTitle {
+      position: absolute;
+      top: max(20px, env(safe-area-inset-top));
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: clamp(18px, 5vw, 26px);
+      color: #2a6fb0;
+      text-shadow: 0 2px 0 #fff, 0 0 12px rgba(120,180,255,0.6);
+      letter-spacing: 2px;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    #logo {
+      font-size: clamp(40px, 14vw, 64px);
+      color: #2a6fb0;
+      text-shadow: 0 6px 16px rgba(80,140,220,0.35);
+      animation: logoPop 1.6s ease forwards;
+      padding: 10px 20px; margin-bottom: 40px;
+    }
+    #startMenuBtn {
+      padding: 18px 60px;
+      font-size: clamp(20px, 5.5vw, 26px);
+      font-family: Impact, 'Arial Black', system-ui, sans-serif;
+      letter-spacing: 2px;
+      border: none; border-radius: 40px;
+      background: #2a6fb0; color: #fff;
+      cursor: pointer;
+      box-shadow: 0 6px 16px rgba(42,111,176,0.45);
+      pointer-events: auto;
+    }
+    #startMenuBtn:active { transform: scale(0.97); background: #1f5a91; }
+    @keyframes logoPop {
+      0% { opacity: 0; transform: scale(0.6); }
+      30% { opacity: 1; transform: scale(1.15); }
+      50% { transform: scale(1.0); }
+      100% { opacity: 1; transform: scale(1.0); }
+    }
+
+    #mainMenu {
+      position: fixed; top: 0; right: 0; bottom: 0;
+      width: min(90%, 420px);
+      display: flex; flex-direction: column; align-items: center;
+      color: #222; text-align: center;
+      padding: 24px 22px;
+      padding-top: max(24px, env(safe-area-inset-top));
+      padding-bottom: max(24px, env(safe-area-inset-bottom));
+      overflow-y: auto;
+      z-index: 301;
+      background: linear-gradient(180deg, #ffffff 0%, #eaf4ff 100%);
+      box-shadow: -8px 0 30px rgba(0,0,0,0.25);
+      transform: translateX(100%);
+      transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1);
+      -webkit-overflow-scrolling: touch;
+      pointer-events: none;
+    }
+    #mainMenu.open { transform: translateX(0); pointer-events: auto; }
+    #mainMenu h1 {
+      font-size: clamp(24px, 7vw, 32px);
+      margin-bottom: 20px;
+      color: #2a6fb0;
+      text-shadow: 0 3px 0 #fff;
+    }
+    #mainMenu .coinsBox {
+      width: 100%;
+      padding: 12px 20px;
+      margin-bottom: 16px;
+      background: rgba(42,111,176,0.12);
+      border-left: 4px solid #2a6fb0;
+      border-radius: 10px;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: clamp(16px, 5vw, 20px);
+      color: #2a6fb0;
+    }
+    #mainMenu .coinsBox .coinIcon { display: inline-flex; align-items: center; font-size: 24px; }
+    #mainMenu .bigBtn {
+      display: block; width: 100%;
+      padding: 16px 24px; margin-bottom: 10px;
+      border: none; border-radius: 40px;
+      background: #2a6fb0; color: #fff;
+      font-family: Impact, 'Arial Black', system-ui, sans-serif;
+      letter-spacing: 2px;
+      font-size: clamp(18px, 5vw, 22px);
+      cursor: pointer;
+      box-shadow: 0 6px 16px rgba(42,111,176,0.35);
+    }
+    #mainMenu .bigBtn:active { transform: scale(0.97); background: #1f5a91; }
+    #mainMenu .credit { margin-top: 16px; font-size: 12px; opacity: 0.55; color: #222; }
+
+    .fullscreen {
+      position: fixed; inset: 0;
+      display: none;
+      flex-direction: column; align-items: center;
+      color: #222; text-align: center;
+      padding-top: max(30px, env(safe-area-inset-top));
+      padding-bottom: max(30px, env(safe-area-inset-bottom));
+      padding-left: max(20px, env(safe-area-inset-left));
+      padding-right: max(20px, env(safe-area-inset-right));
+      overflow-y: auto;
+      z-index: 150;
+      background: linear-gradient(180deg, #ffffff 0%, #eaf4ff 100%);
+      -webkit-overflow-scrolling: touch;
+    }
+    .fullscreen.open { display: flex; }
+    .fullscreen h1 {
+      font-size: clamp(32px, 8vw, 44px);
+      margin-bottom: 24px;
+      color: #2a6fb0;
+      text-shadow: 0 3px 0 #fff;
+    }
+    .fullscreen .section {
+      width: 100%; max-width: min(420px, 90vw);
+      background: rgba(42,111,176,0.08);
+      border-radius: 16px; padding: 18px; margin-bottom: 16px;
+      text-align: left;
+    }
+    .fullscreen .section h2 {
+      font-size: clamp(18px, 5vw, 22px);
+      margin-bottom: 12px; color: #2a6fb0;
+      text-shadow: 0 2px 0 #fff;
+    }
+    .fullscreen .modeBtn {
+      display: block; width: 100%;
+      padding: 14px 18px; margin-bottom: 8px;
+      border: none; border-radius: 30px;
+      background: rgba(42,111,176,0.15);
+      color: #222;
+      font-family: Impact, 'Arial Black', system-ui, sans-serif;
+      letter-spacing: 1px;
+      font-size: clamp(14px, 4.5vw, 18px);
+      cursor: pointer; text-align: left;
+    }
+    .fullscreen .modeBtn.active { background: #2a6fb0; color: #fff; }
+    .fullscreen .modeBtn:active { transform: scale(0.98); }
+    .fullscreen .bigBtn {
+      display: block; width: 100%; max-width: min(420px, 90vw);
+      padding: 20px 30px; margin-bottom: 12px;
+      border: none; border-radius: 40px;
+      background: #2a6fb0; color: #fff;
+      font-family: Impact, 'Arial Black', system-ui, sans-serif;
+      letter-spacing: 2px;
+      font-size: clamp(20px, 5.5vw, 26px);
+      cursor: pointer;
+      box-shadow: 0 6px 16px rgba(42,111,176,0.35);
+    }
+    .fullscreen .bigBtn:active { transform: scale(0.97); background: #1f5a91; }
+    .fullscreen .closeBtn {
+      margin-top: 16px; padding: 14px 50px;
+      font-size: clamp(16px, 4.5vw, 20px);
+      font-family: Impact, 'Arial Black', system-ui, sans-serif;
+      letter-spacing: 2px;
+      border: none; border-radius: 40px;
+      background: #d6e4f0; color: #222; cursor: pointer;
+    }
+    .fullscreen .closeBtn:active { transform: scale(0.96); }
+    .fullscreen .hintText {
+      font-size: 14px; font-family: system-ui, sans-serif;
+      letter-spacing: 0; opacity: 0.7;
+      margin-bottom: 16px; padding: 0 12px;
+    }
+    .achRow {
+      display: flex; align-items: center;
+      padding: 10px 12px;
+      background: rgba(42,111,176,0.08);
+      border-left: 4px solid #2a6fb0;
+      border-radius: 8px; margin-bottom: 8px;
+    }
+    .achRow.locked { border-left-color: #aaa; opacity: 0.6; }
+    .achRow .achIcon {
+      width: 42px; height: 42px; border-radius: 50%;
+      background: rgba(42,111,176,0.15);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; margin-right: 12px; flex-shrink: 0;
+    }
+    .achRow.locked .achIcon { background: rgba(0,0,0,0.06); filter: grayscale(1); }
+    .achRow .achInfo { flex: 1; }
+    .achRow .achTitle { font-size: 15px; color: #222; margin-bottom: 2px; }
+    .achRow.unlocked .achTitle { color: #2a6fb0; }
+    .achRow .achDesc { font-size: 12px; opacity: 0.6; font-family: system-ui, sans-serif; letter-spacing: 0; }
+    #achPopup {
+      position: fixed; top: max(20px, env(safe-area-inset-top)); left: 50%;
+      transform: translate(-50%, -220%);
+      width: min(400px, 92vw);
+      background: #ffffff;
+      border: 3px solid #2a6fb0; border-radius: 14px;
+      padding: 14px 18px;
+      display: flex; align-items: center; gap: 14px;
+      z-index: 1000;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+      transition: transform 0.5s cubic-bezier(0.2, 0.9, 0.3, 1);
+      pointer-events: none;
+    }
+    #achPopup.show { transform: translate(-50%, 0); }
+    #achPopup .achIcon {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: rgba(42,111,176,0.15);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; flex-shrink: 0;
+    }
+    #achPopup .achText { text-align: left; flex: 1; }
+    #achPopup .achLabel {
+      font-size: 11px; color: #2a6fb0; letter-spacing: 1px;
+      margin-bottom: 2px; font-family: system-ui, sans-serif;
+    }
+    #achPopup .achName { font-size: 18px; color: #222; }
+
+    #menuIcon {
+      position: fixed; top: max(20px, env(safe-area-inset-top));
+      right: max(20px, env(safe-area-inset-right));
+      width: 52px; height: 52px;
+      border: 3px solid #fff; border-radius: 50%;
+      background: rgba(0,0,0,0.35); color: #fff; font-size: 24px;
+      cursor: pointer; z-index: 120;
+      display: none; align-items: center; justify-content: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      font-family: inherit;
+    }
+    #menuIcon.show { display: flex; }
+    #menuIcon:active { transform: scale(0.92); }
+    #score {
+      position: fixed; top: max(20px, env(safe-area-inset-top));
+      left: 50%; transform: translateX(-50%);
+      font-size: clamp(32px, 9vw, 48px); color: #fff;
+      text-shadow: -3px -3px 0 #000, 3px -3px 0 #000, -3px 3px 0 #000, 3px 3px 0 #000, 0 4px 10px rgba(0,0,0,0.4);
+      pointer-events: none; z-index: 5;
+    }
+    #best {
+      position: fixed; top: max(80px, calc(env(safe-area-inset-top) + 60px));
+      right: max(20px, env(safe-area-inset-right));
+      font-size: clamp(14px, 4vw, 18px); color: #fff;
+      text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000;
+      pointer-events: none; z-index: 5;
+    }
+    #coinsHud {
+      position: fixed; top: max(106px, calc(env(safe-area-inset-top) + 86px));
+      right: max(20px, env(safe-area-inset-right));
+      font-size: clamp(14px, 4vw, 18px); color: #ffd34d;
+      text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000;
+      pointer-events: none; z-index: 5;
+      display: inline-flex; align-items: center;
+    }
+    #modeLabel {
+      position: fixed; top: max(132px, calc(env(safe-area-inset-top) + 112px));
+      right: max(20px, env(safe-area-inset-right));
+      font-size: clamp(12px, 3.2vw, 14px); color: #ffd34d;
+      text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000;
+      pointer-events: none; z-index: 5;
+    }
+    #hint {
+      position: fixed; bottom: max(40px, env(safe-area-inset-bottom));
+      left: 50%; transform: translateX(-50%);
+      color: #fff; font-size: clamp(16px, 4.5vw, 20px);
+      text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000;
+      pointer-events: none; text-align: center; z-index: 5;
+      padding: 0 12px; width: 100%;
+    }
+    #perfect {
+      position: fixed; top: 25%; left: 50%;
+      transform: translate(-50%, -50%) scale(0.5);
+      font-size: clamp(40px, 12vw, 60px); color: #fff;
+      text-shadow: -4px -4px 0 #000, 4px -4px 0 #000, -4px 4px 0 #000, 4px 4px 0 #000, 0 8px 16px rgba(0,0,0,0.5);
+      opacity: 0; pointer-events: none; z-index: 5;
+    }
+    #perfect.show { animation: perfectPop 0.8s ease-out forwards; }
+    @keyframes perfectPop {
+      0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+      20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+      40% { transform: translate(-50%, -50%) scale(1.0); }
+      80% { opacity: 1; transform: translate(-50%, -50%) scale(1.0); }
+      100% { opacity: 0; transform: translate(-50%, -50%) scale(1.0) translateY(-40px); }
+    }
+    #version {
+      position: fixed; bottom: max(10px, env(safe-area-inset-bottom));
+      right: max(12px, env(safe-area-inset-right));
+      font-size: 11px; font-family: system-ui, sans-serif;
+      letter-spacing: 0; color: #fff; opacity: 0.5;
+      text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+      pointer-events: none; z-index: 200;
+    }
+    #gameover {
+      position: fixed; inset: 0; display: none;
+      flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.78); color: #fff; text-align: center;
+      padding: 20px; z-index: 10;
+    }
+    #gameover h1 {
+      font-size: clamp(36px, 11vw, 56px); margin-bottom: 20px;
+      text-shadow: -4px -4px 0 #000, 4px -4px 0 #000, -4px 4px 0 #000, 4px 4px 0 #000;
+    }
+    #gameover p {
+      font-size: clamp(20px, 5.5vw, 26px); margin-bottom: 8px;
+      text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000;
+    }
+    #gameover p.record { color: #ffd34d; font-size: clamp(16px, 5vw, 22px); margin-bottom: 30px; }
+    #gameover .btnRow { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+    #gameover button {
+      padding: 16px 38px; font-size: clamp(16px, 5vw, 22px);
+      font-family: Impact, 'Arial Black', system-ui, sans-serif;
+      letter-spacing: 2px; border: none; border-radius: 40px;
+      background: #ffd34d; color: #222; cursor: pointer;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.5);
+    }
+    #gameover button.secondary { background: #e0e0e0; }
+    #gameover button:active { transform: scale(0.96); background: #ffc107; }
+    #paletteOverlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 400;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    #paletteOverlay.open { opacity: 1; pointer-events: auto; }
+    #paletteBox {
+      background: #ffffff; border-radius: 20px;
+      padding: 24px; max-width: min(420px, 90vw); width: 100%;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.35);
+      transform: scale(0.85);
+      transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1);
+      max-height: 85vh; overflow-y: auto;
+    }
+    #paletteOverlay.open #paletteBox { transform: scale(1); }
+    #paletteBox h3 {
+      font-size: clamp(20px, 6vw, 26px); color: #2a6fb0;
+      margin-bottom: 16px; text-align: center;
+      text-shadow: 0 2px 0 #fff;
+    }
+    .paletteGrid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 12px; margin-bottom: 18px;
+    }
+    .paletteItem {
+      aspect-ratio: 1 / 1; border-radius: 14px;
+      cursor: pointer; border: 3px solid transparent;
+      position: relative; overflow: hidden;
+      transition: transform 0.15s ease;
+    }
+    .paletteItem:active { transform: scale(0.94); }
+    .paletteItem.selected {
+      border-color: #2a6fb0;
+      box-shadow: 0 0 0 3px #a8d0f0, 0 0 20px rgba(42,111,176,0.5);
+    }
+    .paletteItem .paletteName {
+      position: absolute; bottom: 6px; left: 0; right: 0;
+      text-align: center; font-size: 11px; color: #fff;
+      text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+      letter-spacing: 0;
+    }
+    #paletteClose {
+      display: block; width: 100%; padding: 14px;
+      font-size: clamp(16px, 4.5vw, 18px);
+      font-family: Impact, 'Arial Black', system-ui, sans-serif;
+      letter-spacing: 2px; border: none; border-radius: 30px;
+      background: #2a6fb0; color: #fff; cursor: pointer;
+    }
+    #paletteClose:active { transform: scale(0.97); background: #1f5a91; }
+    #changelogOverlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 300;
+    }
+    #changelogOverlay.open { opacity: 1; pointer-events: auto; }
+    #changelogPanel {
+      position: fixed; top: 0; right: 0; bottom: 0;
+      width: min(90%, 420px);
+      background: linear-gradient(180deg, #ffffff 0%, #eaf4ff 100%);
+      color: #222; padding: 24px 22px;
+      padding-top: max(24px, env(safe-area-inset-top));
+      padding-bottom: max(24px, env(safe-area-inset-bottom));
+      overflow-y: auto;
+      transform: translateX(100%);
+      transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1);
+      z-index: 302;
+      box-shadow: -8px 0 30px rgba(0,0,0,0.25);
+      -webkit-overflow-scrolling: touch;
+      pointer-events: none;
+    }
+    #changelogPanel.open { transform: translateX(0); pointer-events: auto; }
+    #changelogPanel h2 {
+      font-size: clamp(24px, 7vw, 32px); margin-bottom: 6px;
+      color: #2a6fb0;
+      text-shadow: 0 3px 0 #fff;
+    }
+    #changelogPanel .sub {
+      font-size: 13px; opacity: 0.6; margin-bottom: 20px;
+      font-family: system-ui, sans-serif; letter-spacing: 0;
+    }
+    #changelogPanel .ver {
+      background: rgba(42,111,176,0.07);
+      border-left: 4px solid #2a6fb0;
+      border-radius: 8px; padding: 12px 14px; margin-bottom: 12px;
+    }
+    #changelogPanel .ver.current {
+      border-left-color: #2a6fb0;
+      background: rgba(42,111,176,0.15);
+    }
+    #changelogPanel .ver h3 { font-size: clamp(15px, 4.5vw, 18px); margin-bottom: 4px; color: #222; }
+    #changelogPanel .ver .date {
+      font-size: 12px; opacity: 0.55; margin-bottom: 8px;
+      font-family: system-ui, sans-serif; letter-spacing: 0;
+    }
+    #changelogPanel .ver ul {
+      list-style: none; padding-left: 0;
+      font-family: system-ui, sans-serif; letter-spacing: 0;
+      font-size: 14px; line-height: 1.6;
+    }
+    #changelogPanel .ver li {
+      padding-left: 18px; position: relative;
+      margin-bottom: 4px; color: #333;
+    }
+    #changelogPanel .ver li::before {
+      content: '▸'; position: absolute; left: 0; color: #2a6fb0;
+    }
+    #changelogPanel .ver.current li::before { color: #2a6fb0; }
+    #changelogPanel .badge {
+      display: inline-block; background: #2a6fb0;
+      color: #fff; font-size: 11px; padding: 2px 8px;
+      border-radius: 10px; margin-left: 8px;
+      font-family: system-ui, sans-serif; letter-spacing: 0;
+    }
+    #changelogClose {
+      position: absolute; top: max(16px, env(safe-area-inset-top));
+      right: 16px; width: 40px; height: 40px;
+      border: none; border-radius: 50%;
+      background: rgba(42,111,176,0.15);
+      color: #222; font-size: 20px; cursor: pointer;
+      font-family: inherit;
+    }
+    #changelogClose:active { transform: scale(0.92); background: rgba(42,111,176,0.3); }
+
+    #creditsOverlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: none; align-items: center; justify-content: center;
+      padding: 20px;
+      z-index: 600;
+      overflow-y: auto;
+    }
+    #creditsOverlay.open { display: flex; }
+    #creditsBox {
+      background: linear-gradient(180deg, #ffffff 0%, #eaf4ff 100%);
+      border: 3px solid #2a6fb0;
+      border-radius: 16px;
+      padding: 24px 22px;
+      max-width: min(420px, 92vw);
+      width: 100%;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+      text-align: center;
+      color: #222;
+    }
+    #creditsBox h2 {
+      font-size: clamp(24px, 7vw, 32px);
+      color: #2a6fb0;
+      margin-bottom: 20px;
+      text-shadow: 0 3px 0 #fff;
+    }
+    #creditsBox .creditsLine {
+      font-family: system-ui, sans-serif;
+      letter-spacing: 0;
+      font-size: 14px;
+      margin-bottom: 8px;
+      color: #333;
+    }
+    #creditsBox .creditsLine b { color: #2a6fb0; }
+    #creditsBox .creditsSection {
+      font-family: Impact, 'Arial Black', system-ui, sans-serif;
+      font-size: 18px;
+      margin: 18px 0 10px;
+      color: #2a6fb0;
+      text-shadow: 0 2px 0 #fff;
+    }
+    #creditsClose {
+      margin-top: 20px;
+      padding: 14px 40px;
+      font-size: 18px;
+      font-family: Impact, 'Arial Black', system-ui, sans-serif;
+      letter-spacing: 2px;
+      border: none; border-radius: 40px;
+      background: #2a6fb0; color: #fff;
+      cursor: pointer;
+      box-shadow: 0 6px 16px rgba(42,111,176,0.35);
+    }
+    #creditsClose:active { transform: scale(0.96); background: #1f5a91; }
+
+    /* ===== SHOP ===== */
+    #shopOverlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: none; align-items: flex-start; justify-content: center;
+      padding: 20px;
+      z-index: 650;
+      overflow-y: auto;
+    }
+    #shopOverlay.open { display: flex; }
+    #shopBox {
+      background: linear-gradient(180deg, #ffffff 0%, #eaf4ff 100%);
+      border: 3px solid #2a6fb0;
+      border-radius: 16px;
+      padding: 24px 20px;
+      max-width: min(460px, 94vw);
+      width: 100%;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+      color: #222;
+      margin-top: 20px;
+    }
+    #shopBox h2 {
+      font-size: clamp(24px, 7vw, 32px);
+      color: #2a6fb0;
+      margin-bottom: 6px;
+      text-align: center;
+      text-shadow: 0 3px 0 #fff;
+    }
+    #shopBox .shopCoins {
+      text-align: center;
+      font-size: 18px;
+      color: #2a6fb0;
+      margin-bottom: 18px;
+      font-family: system-ui, sans-serif;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    #shopTabs {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+    #shopTabs .shopTab {
+      padding: 10px 18px;
+      border: 2px solid #2a6fb0;
+      border-radius: 30px;
+      background: transparent;
+      color: #2a6fb0;
+      font-family: Impact, 'Arial Black', system-ui, sans-serif;
+      letter-spacing: 1px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    #shopTabs .shopTab.active {
+      background: #2a6fb0;
+      color: #fff;
+    }
+    .renderGrid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .renderItem {
+      background: rgba(42,111,176,0.07);
+      border: 3px solid transparent;
+      border-radius: 12px;
+      padding: 12px 10px;
+      text-align: center;
+      cursor: pointer;
+      transition: transform 0.15s ease, border-color 0.2s;
+      position: relative;
+    }
+    .renderItem:active { transform: scale(0.96); }
+    .renderItem.owned { border-color: #4ec9a8; }
+    .renderItem.active {
+      border-color: #2a6fb0;
+      box-shadow: 0 0 0 3px #a8d0f0, 0 0 20px rgba(42,111,176,0.5);
+    }
+    .renderItem .renderPreview {
+      width: 60px; height: 60px;
+      margin: 0 auto 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .renderItem .renderPreview canvas { width: 60px; height: 60px; border-radius: 8px; }
+    .renderItem .renderName {
+      font-size: 14px;
+      color: #222;
+      margin-bottom: 4px;
+      font-family: Impact, 'Arial Black', system-ui, sans-serif;
+    }
+    .renderItem .renderPrice {
+      font-size: 12px;
+      color: #2a6fb0;
+      font-family: system-ui, sans-serif;
+    }
+    .renderItem.owned .renderPrice { color: #2f9e7f; }
+    .renderItem .renderSelected {
+      position: absolute; top: 4px; right: 6px;
+      font-size: 11px; color: #2a6fb0;
+      font-family: system-ui, sans-serif;
+    }
+    #shopClose {
+      display: block; width: 100%;
+      padding: 14px;
+      font-size: 18px;
+      font-family: Impact, 'Arial Black', system-ui, sans-serif;
+      letter-spacing: 2px;
+      border: none; border-radius: 40px;
+      background: #2a6fb0; color: #fff;
+      cursor: pointer;
+    }
+    #shopClose:active { transform: scale(0.97); background: #1f5a91; }
+
+    /* ===== CONFIRM ===== */
+    #confirmOverlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: none; align-items: center; justify-content: center;
+      padding: 20px;
+      z-index: 700;
+    }
+    #confirmOverlay.open { display: flex; }
+    #confirmBox {
+      background: linear-gradient(180deg, #ffffff 0%, #eaf4ff 100%);
+      border: 3px solid #2a6fb0;
+      border-radius: 16px;
+      padding: 24px 20px;
+      max-width: min(380px, 92vw);
+      width: 100%;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+      color: #222;
+      text-align: center;
+    }
+    #confirmBox h3 {
+      font-size: clamp(20px, 6vw, 26px);
+      color: #2a6fb0;
+      margin-bottom: 12px;
+      text-shadow: 0 2px 0 #fff;
+    }
+    #confirmBox .confirmText {
+      font-family: system-ui, sans-serif;
+      letter-spacing: 0;
+      font-size: 16px;
+      margin-bottom: 6px;
+      color: #333;
+    }
+    #confirmBox .confirmPrice {
+      font-family: system-ui, sans-serif;
+      letter-spacing: 0;
+      font-size: 20px;
+      margin-bottom: 20px;
+      color: #2a6fb0;
+    }
+    #confirmBox .confirmBtnRow {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+    #confirmBox .confirmBtnRow button {
+      flex: 1;
+      padding: 14px 0;
+      font-size: 18px;
+      font-family: Impact, 'Arial Black', system-ui, sans-serif;
+      letter-spacing: 2px;
+      border: none; border-radius: 30px;
+      cursor: pointer;
+    }
+    #confirmYes { background: #2a6fb0; color: #fff; }
+    #confirmYes:active { background: #1f5a91; transform: scale(0.97); }
+    #confirmNo { background: #d6e4f0; color: #222; }
+    #confirmNo:active { background: #b8cde0; transform: scale(0.97); }
+
+    #offlineOverlay {
+      position: fixed; inset: 0;
+      background: #111; color: #fff;
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 9999; padding: 30px; text-align: center;
+    }
+    #offlineOverlay.show { display: flex; }
+    #offlineOverlay h1 {
+      font-size: clamp(30px, 8vw, 44px);
+      color: #ffd34d; margin-bottom: 20px;
+      text-shadow: -3px -3px 0 #000, 3px -3px 0 #000, -3px 3px 0 #000, 3px 3px 0 #000;
+    }
+    #offlineOverlay p {
+      font-size: clamp(16px, 4.5vw, 20px);
+      opacity: 0.85; font-family: system-ui, sans-serif; letter-spacing: 0;
+    }
+    @media (orientation: landscape) and (max-height: 500px) {
+      .fullscreen h1 { margin-bottom: 12px; font-size: clamp(24px, 5vw, 32px); }
+      .fullscreen .section { padding: 12px; margin-bottom: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="leafCanvas"></canvas>
+
+  <div id="offlineOverlay">
+    <h1>NO INTERNET</h1>
+    <p>Connect to the internet to play</p>
+  </div>
+
+  <div id="achPopup">
+    <div class="achIcon">🏆</div>
+    <div class="achText">
+      <div class="achLabel" id="achLabel">ACHIEVEMENT UNLOCKED</div>
+      <div class="achName" id="achPopupName">First Steps</div>
+    </div>
+  </div>
+
+  <div id="start">
+    <div id="winterTitle">Happy winter!</div>
+    <div id="logo">STACK 3D</div>
+    <button id="startMenuBtn">MENU</button>
+  </div>
+
+  <div id="mainMenu">
+    <h1 id="menuTitle">STACK 3D</h1>
+    <div class="coinsBox">
+      <span class="coinIcon"><span class="coinDot"></span></span>
+      <span id="menuCoins">0</span>
+    </div>
+    <button class="bigBtn" id="continueBtn" style="display:none;">CONTINUE</button>
+    <button class="bigBtn" id="playBtn" data-i18n="play">PLAY</button>
+    <button class="bigBtn" id="shopBtn" data-i18n="shop">SHOP</button>
+    <button class="bigBtn" id="achievementsBtn" data-i18n="achievements">ACHIEVEMENTS</button>
+    <button class="bigBtn" id="settingsBtn" data-i18n="settings">SETTINGS</button>
+    <button class="bigBtn" id="changelogBtn" data-i18n="changelog">CHANGELOG</button>
+    <button class="bigBtn" id="creditsBtn">CREDITS</button>
+    <div class="credit">© 2026 kran1or. All rights reserved.</div>
+  </div>
+
+  <div id="modeMenu" class="fullscreen">
+    <h1 data-i18n="selectMode">SELECT MODE</h1>
+    <div class="hintText" data-i18n="chooseMode">Choose your game mode and press START</div>
+    <div class="section">
+      <button class="modeBtn" data-mode="classic" data-i18n="modeClassic">CLASSIC — fixed speed</button>
+      <button class="modeBtn" data-mode="speed" data-i18n="modeSpeed">SPEED — gets faster over time</button>
+      <button class="modeBtn" data-mode="hard" data-i18n="modeHard">HARD — smaller perfect zone</button>
+    </div>
+    <button class="bigBtn" id="startGameBtn" data-i18n="start">START</button>
+    <button class="closeBtn" id="modeMenuClose" data-i18n="back">BACK</button>
+  </div>
+
+  <div id="achievementsMenu" class="fullscreen">
+    <h1 data-i18n="achievements">ACHIEVEMENTS</h1>
+    <div id="achievementsList" style="width:100%;max-width:min(460px,92vw);"></div>
+    <button class="closeBtn" id="achievementsClose" data-i18n="back">BACK</button>
+  </div>
+
+  <div id="settingsMenu" class="fullscreen">
+    <h1 data-i18n="settings">SETTINGS</h1>
+    <div class="section">
+      <h2 data-i18n="language">LANGUAGE</h2>
+      <button class="modeBtn" id="langEn" data-i18n="langEn">ENGLISH</button>
+      <button class="modeBtn" id="langRu" data-i18n="langRu">RUSSIAN</button>
+      <button class="modeBtn" id="langPl" data-i18n="langPl">POLISH</button>
+    </div>
+    <div class="section">
+      <h2 data-i18n="visual">VISUAL</h2>
+      <button class="modeBtn" id="toggleTimeBg" data-i18n="timeBg">TIME BACKGROUND: ON</button>
+      <button class="modeBtn" id="bgColorBtn" data-i18n="bgColor">BACKGROUND COLOR</button>
+      <button class="modeBtn" id="toggleParticles" data-i18n="particles">PARTICLES: ON</button>
+    </div>
+    <div class="section">
+      <h2 data-i18n="audio">AUDIO</h2>
+      <button class="modeBtn" id="toggleSound" data-i18n="sound">SOUND: ON</button>
+    </div>
+    <button class="closeBtn" id="settingsClose" data-i18n="back">BACK</button>
+  </div>
+
+  <div id="changelogOverlay"></div>
+  <div id="changelogPanel">
+    <button id="changelogClose">✕</button>
+    <h2 data-i18n="changelog">CHANGELOG</h2>
+    <div class="sub" data-i18n="changelogSub">All updates of Stack 3D</div>
+    <div id="changelogList"></div>
+  </div>
+
+  <div id="creditsOverlay">
+    <div id="creditsBox">
+      <h2>CREDITS</h2>
+      <div class="creditsLine">Idea by: <b>kran1or</b></div>
+      <div class="creditsLine">Code increase: <b>kran1or / DeepSeek</b></div>
+      <div class="creditsLine">3D Graphics: <b>DeepSeek</b></div>
+      <div class="creditsLine">Art: <b>kran1or / Yash1k</b></div>
+      <div class="creditsLine">Powered by: <b>HTML</b></div>
+      <div class="creditsLine">Mechanics: <b>DeepSeek / kran1or</b></div>
+      <div class="creditsSection">Open-source</div>
+      <div class="creditsLine">GitHub: <b>kran1or/Stack-</b></div>
+      <div class="creditsSection">Creators</div>
+      <div class="creditsLine"><b>Yash1k</b> (YasHik)</div>
+      <div class="creditsLine"><b>DeepSeek</b> (AI model — Dip)</div>
+      <div class="creditsLine"><b>kran1or</b> (kranik)</div>
+      <button id="creditsClose">CLOSE</button>
+    </div>
+  </div>
+
+  <div id="shopOverlay">
+    <div id="shopBox">
+      <h2 data-i18n="shop">SHOP</h2>
+      <div class="shopCoins"><span class="coinDot"></span> <span id="shopCoinsValue">0</span></div>
+      <div id="shopTabs">
+        <button class="shopTab active" data-tab="renders">RENDERS</button>
+      </div>
+      <div class="renderGrid" id="renderGrid"></div>
+      <button id="shopClose" data-i18n="close">CLOSE</button>
+    </div>
+  </div>
+
+  <div id="confirmOverlay">
+    <div id="confirmBox">
+      <h3 id="confirmTitle">BUY?</h3>
+      <div class="confirmText" id="confirmText"></div>
+      <div class="confirmPrice" id="confirmPrice"></div>
+      <div class="confirmBtnRow">
+        <button id="confirmYes" data-i18n="yes">YES</button>
+        <button id="confirmNo" data-i18n="no">NO</button>
+      </div>
+    </div>
+  </div>
+
+  <canvas id="game"></canvas>
+  <div id="score">0</div>
+  <div id="best">BEST: 0</div>
+  <div id="coinsHud"><span class="coinDot"></span><span id="coinsHudValue">0</span></div>
+  <div id="modeLabel">CLASSIC</div>
+  <div id="perfect" data-i18n="perfect">PERFECT!</div>
+  <div id="hint" data-i18n="tapToPlace">TAP TO PLACE THE BLOCK</div>
+  <div id="version">v1.6.1</div>
+  <button id="menuIcon" aria-label="Menu">☰</button>
+  <div id="gameover">
+    <h1 data-i18n="gameOver">GAME OVER</h1>
+    <p><span data-i18n="scoreLabel">SCORE</span>: <span id="finalScore">0</span></p>
+    <p class="record"><span data-i18n="bestLabel">BEST</span>: <span id="bestScore">0</span></p>
+    <div class="btnRow">
+      <button id="restartBtn" type="button" data-i18n="playAgain">PLAY AGAIN</button>
+      <button id="mainMenuBtn" class="secondary" type="button" data-i18n="mainMenu">MAIN MENU</button>
+    </div>
+  </div>
+  <div id="paletteOverlay">
+    <div id="paletteBox">
+      <h3 data-i18n="chooseBg">CHOOSE BACKGROUND</h3>
+      <div class="paletteGrid" id="paletteGrid"></div>
+      <button id="paletteClose" data-i18n="close">CLOSE</button>
+    </div>
+  </div>
+
+  <!-- Подключаем логику -->
+  <script src="game.js"></script>
+</body>
+</html>
