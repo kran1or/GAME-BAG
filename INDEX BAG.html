@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Stack 3D - Game Bar</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html { height: 100%; overflow: hidden; background: #111; font-family: 'Fredoka One', Impact, sans-serif; }
+    
+    /* Заставка */
+    #splash {
+      position: fixed; inset: 0; background: #1a1a2e; z-index: 9999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      transition: opacity 0.5s ease; cursor: pointer;
+    }
+    #splashCanvas { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
+    #splashContent {
+      position: relative; z-index: 2; text-align: center; color: white;
+      pointer-events: none; margin-top: -150px;
+    }
+    #splashContent h1 {
+      font-size: 40px; color: #ffd700; text-shadow: 0 0 20px #ffd700, 0 4px 10px #000;
+      margin-bottom: 20px; letter-spacing: 2px;
+    }
+    #splashContent p { font-size: 18px; opacity: 0.8; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+    
+    /* Экран выбора настроек графики (для ПК) */
+    #pcPrompt {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 10000;
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 20px; color: white;
+    }
+    #pcPrompt h2 { font-size: 28px; margin-bottom: 20px; color: #4ec9a8; }
+    #pcPrompt p { font-size: 16px; margin-bottom: 30px; opacity: 0.7; }
+    .btn {
+      padding: 15px 40px; font-size: 20px; font-family: 'Fredoka One', Impact, sans-serif;
+      border: none; border-radius: 50px; background: #2a6fb0; color: white;
+      cursor: pointer; margin: 10px; transition: transform 0.1s;
+      box-shadow: 0 5px 15px rgba(42,111,176,0.4);
+    }
+    .btn:active { transform: scale(0.95); }
+    .btn.green { background: #4ec9a8; box-shadow: 0 5px 15px rgba(78,201,168,0.4); }
+    .btn.red { background: #e84a6f; box-shadow: 0 5px 15px rgba(232,74,111,0.4); }
+    
+    /* ИГРА */
+    #gameContainer { display: none; width: 100%; height: 100%; position: fixed; inset: 0; background: #222; }
+    #gameCanvas { width: 100%; height: 100%; display: block; background: #111; }
+
+    /* ГЕЙМПАД ПОВЕРХ ИГРЫ */
+    #gameBar {
+      position: fixed; inset: 0; pointer-events: none; z-index: 500;
+      display: flex; justify-content: space-between; align-items: flex-end;
+      padding: 20px 40px 40px 40px;
+      font-family: 'Fredoka One', sans-serif;
+    }
+
+    .joystick-area {
+      pointer-events: auto;
+      width: 120px; height: 120px; border-radius: 50%;
+      background: rgba(255,255,255,0.1);
+      border: 3px solid rgba(255,255,255,0.3);
+      position: relative;
+    }
+    .joystick-base {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 50px; height: 50px; border-radius: 50%;
+      background: rgba(255,255,255,0.3);
+      border: 2px solid rgba(255,255,255,0.6);
+      transition: transform 0.1s;
+    }
+
+    .action-buttons {
+      pointer-events: auto;
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 15px; position: relative;
+    }
+    .action-btn {
+      width: 70px; height: 70px; border-radius: 50%;
+      border: 3px solid rgba(255,255,255,0.6);
+      font-size: 26px; font-weight: bold;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+      cursor: pointer; user-select: none;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+      transition: transform 0.05s, filter 0.1s;
+    }
+    .action-btn:active { transform: scale(0.9); filter: brightness(1.3); }
+    .btn-a { background: #4ec9a8; grid-column: 2; grid-row: 2; }
+    .btn-b { background: #e84a6f; grid-column: 3; grid-row: 1; margin-top: 30px; }
+    .btn-x { background: #2a6fb0; grid-column: 1; grid-row: 1; margin-top: 30px; }
+    .btn-y { background: #ffd700; grid-column: 2; grid-row: 0; margin-bottom: 30px;}
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- 1. ЗАСТАВКА -->
+  <div id="splash">
+    <canvas id="splashCanvas"></canvas>
+    <div id="splashContent">
+      <h1>STACK 3D</h1>
+      <p>Нажми, чтобы начать</p>
+    </div>
+  </div>
+
+  <!-- 2. ЭКРАН ДЛЯ ПК -->
+  <div id="pcPrompt">
+    <h2>Обнаружен компьютер</h2>
+    <p>Использовать настройки графики для телефонов?</p>
+    <div>
+      <button class="btn green" onclick="startGame('mobile')">ДА (Телефонная)</button>
+      <button class="btn red" onclick="startGame('pc')">НЕТ (Для ПК)</button>
+    </div>
+  </div>
+
+  <!-- 3. САМА ИГРА + ГЕЙМ-БАР -->
+  <div id="gameContainer">
+    <canvas id="gameCanvas"></canvas>
+    
+    <!-- Гейм-бар -->
+    <div id="gameBar">
+      <!-- Левая часть (Джойстик) -->
+      <div class="joystick-area" id="joystickArea">
+        <div class="joystick-base" id="joystickBase"></div>
+      </div>
+      
+      <!-- Правая часть (Кнопки) -->
+      <div class="action-buttons">
+        <div class="action-btn btn-y" id="btnY">Y</div>
+        <div class="action-btn btn-x" id="btnX">X</div>
+        <div class="action-btn btn-b" id="btnB">B</div>
+        <div class="action-btn btn-a" id="btnA">A</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+  <script>
+    // --- ЛОГИКА ЗАСТАВКИ ---
+    const splashCanvas = document.getElementById('splashCanvas');
+    const sctx = splashCanvas.getContext('2d');
+    let W, H;
+
+    function resizeCanvas() {
+      W = splashCanvas.width = window.innerWidth;
+      H = splashCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    let time = 0;
+    function drawJoystick() {
+      sctx.clearRect(0, 0, W, H);
+      const grad = sctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, '#1a1a2e');
+      grad.addColorStop(1, '#0f3460');
+      sctx.fillStyle = grad;
+      sctx.fillRect(0, 0, W, H);
+
+      const cx = W / 2;
+      const cy = H / 2 + 50;
+      sctx.save();
+      sctx.translate(cx, cy);
+      
+      // Корпус
+      const gw = 160, gh = 90, r = 40;
+      sctx.beginPath();
+      sctx.moveTo(-gw/2 + r, -gh/2); sctx.lineTo(gw/2 - r, -gh/2);
+      sctx.quadraticCurveTo(gw/2, -gh/2, gw/2, -gh/2 + r);
+      sctx.lineTo(gw/2, gh/2 - r); sctx.quadraticCurveTo(gw/2, gh/2, gw/2 - r, gh/2);
+      sctx.lineTo(-gw/2 + r, gh/2); sctx.quadraticCurveTo(-gw/2, gh/2, -gw/2, gh/2 - r);
+      sctx.lineTo(-gw/2, -gh/2 + r); sctx.quadraticCurveTo(-gw/2, -gh/2, -gw/2 + r, -gh/2);
+      sctx.closePath();
+      sctx.fillStyle = '#2a6fb0'; sctx.fill();
+      sctx.strokeStyle = '#4ec9a8'; sctx.lineWidth = 4; sctx.stroke();
+
+      // D-Pad
+      const dS = 12, dO = 40;
+      sctx.fillStyle = '#1a1a2e';
+      sctx.beginPath(); sctx.roundRect(-dO - dS/2, -dS/2, dS, dS, 3); sctx.fill();
+      sctx.beginPath(); sctx.roundRect(dO - dS/2, -dS/2, dS, dS, 3); sctx.fill();
+      sctx.beginPath(); sctx.roundRect(-dS/2, -dO - dS/2, dS, dS, 3); sctx.fill();
+      sctx.beginPath(); sctx.roundRect(-dS/2, dO - dS/2, dS, dS, 3); sctx.fill();
+
+      // Кнопки
+      const bR = 10, bD = 32;
+      sctx.beginPath(); sctx.arc(bD, -bD, bR, 0, Math.PI*2); sctx.fillStyle = '#ffd700'; sctx.fill();
+      sctx.beginPath(); sctx.arc(bD, bD, bR, 0, Math.PI*2); sctx.fillStyle = '#4ec9a8'; sctx.fill();
+      sctx.beginPath(); sctx.arc(-bD, 0, bR, 0, Math.PI*2); sctx.fillStyle = '#2a6fb0'; sctx.fill();
+      sctx.beginPath(); sctx.arc(bD, 0, bR, 0, Math.PI*2); sctx.fillStyle = '#e84a6f'; sctx.fill();
+
+      // Пульсация
+      const pulse = Math.sin(time * 5) * 2;
+      sctx.beginPath(); sctx.arc(0, 0, 15 + pulse, 0, Math.PI*2);
+      sctx.fillStyle = '#ffd700'; sctx.fill();
+      sctx.strokeStyle = '#fff'; sctx.lineWidth = 2; sctx.stroke();
+
+      sctx.restore();
+      time += 0.05;
+      requestAnimationFrame(drawJoystick);
+    }
+    drawJoystick();
+
+    // --- ПЕРЕХОД ---
+    document.getElementById('splash').addEventListener('click', () => {
+      document.getElementById('splash').style.opacity = '0';
+      setTimeout(() => {
+        document.getElementById('splash').style.display = 'none';
+        const isPC = !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        if (isPC) {
+          document.getElementById('pcPrompt').style.display = 'flex';
+        } else {
+          startGame('mobile');
+        }
+      }, 500);
+    });
+
+    function startGame(settings) {
+      document.getElementById('pcPrompt').style.display = 'none';
+      document.getElementById('gameContainer').style.display = 'block';
+      
+      // Тут можно включить/выключить гейм-бар в зависимости от платформы
+      // Например, на ПК он не нужен, но пусть будет для визуала
+      if (settings === 'pc') {
+        // document.getElementById('gameBar').style.display = 'none'; // Если хочешь скрыть на ПК
+      }
+
+      // Запуск твоей игры (если функция есть в game.js)
+      if (typeof initGame === 'function') {
+        initGame(settings);
+      }
+    }
+
+    // --- ИНТЕРАКТИВ ГЕЙМ-БАРА ---
+    const joystickArea = document.getElementById('joystickArea');
+    const joystickBase = document.getElementById('joystickBase');
+    let isDragging = false;
+
+    function handleJoystickMove(e) {
+      if (!isDragging) return;
+      e.preventDefault();
+      const rect = joystickArea.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      
+      const touch = e.touches ? e.touches[0] : e;
+      let dx = touch.clientX - centerX;
+      let dy = touch.clientY - centerY;
+      
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const maxDist = 30;
+      
+      if (dist > maxDist) {
+        dx = (dx / dist) * maxDist;
+        dy = (dy / dist) * maxDist;
+      }
+      
+      joystickBase.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+      
+      // Здесь можно передавать данные в игру (dx, dy)
+      if (typeof onJoystickMove === 'function') {
+        onJoystickMove(dx / maxDist, dy / maxDist);
+      }
+    }
+
+    function resetJoystick() {
+      isDragging = false;
+      joystickBase.style.transform = 'translate(-50%, -50%)';
+      if (typeof onJoystickMove === 'function') {
+        onJoystickMove(0, 0);
+      }
+    }
+
+    joystickArea.addEventListener('mousedown', (e) => { isDragging = true; handleJoystickMove(e); });
+    joystickArea.addEventListener('touchstart', (e) => { isDragging = true; handleJoystickMove(e); }, {passive: false});
+    
+    document.addEventListener('mousemove', handleJoystickMove);
+    document.addEventListener('touchmove', handleJoystickMove, {passive: false});
+    
+    document.addEventListener('mouseup', resetJoystick);
+    document.addEventListener('touchend', resetJoystick);
+
+    // Кнопки A, B, X, Y
+    document.getElementById('btnA').addEventListener('click', () => triggerButton('A'));
+    document.getElementById('btnB').addEventListener('click', () => triggerButton('B'));
+    document.getElementById('btnX').addEventListener('click', () => triggerButton('X'));
+    document.getElementById('btnY').addEventListener('click', () => triggerButton('Y'));
+
+    function triggerButton(btn) {
+      // Визуальный отклик
+      const el = document.getElementById('btn' + btn);
+      el.style.transform = 'scale(0.8)';
+      setTimeout(() => { el.style.transform = 'scale(1)'; }, 100);
+      
+      // Передача в игру
+      if (typeof onGamepadButton === 'function') {
+        onGamepadButton(btn);
+      }
+    }
+  </script>
+</body>
+</html>
